@@ -1,38 +1,23 @@
 import os
-
+import re
+from numpy import random
 # /JPEGImages/2007_000032.jpg /SegmentationClassAug/2007_000032.png
 
-label_root = "/mnt/nas/jiaojiao/data/VOC_aug/VOC2012/SegmentationClassAug"
-img_root = "/mnt/nas/jiaojiao/data/VOC_aug/VOC2012/JPEGImages"
-
+img_root = "./output/pascal_train"
+ratio = 1
+datasize = 10582 # Pascal training datasize
+JPGimg_folder = "/JPEGImages/"
 img_list = os.listdir(img_root)
+choice_id = random.choice(len(img_list), datasize*ratio, replace=False) # Choose synthetic image to satisfy real/fake ratio
+print("Length of image in dataset"len(img_list))
 
-# print(img_list)
-print(len(img_list))
-
+pattern = r'_[0-4].png'
+replacement = '_new.png'
 # function1: Generate list of file name for Synthetic dataset
-# with open("./train_aug.txt", "w") as f:
-#     for name in img_list:
-#         f.write("/JPEGImages/" + name + " /SegmentationClassAug/" + name + '\n')
-        
-    
-# Function2: Replace mask in train dataset with SAM segmented semantics
 with open("./train_aug.txt", "w") as f:
-
-    # Open the file in read mode
-    with open('./train_aug_old.txt', 'r') as file:
-        # Read all lines into a list
-        lines = file.readlines()
-        print(lines)
-        # Iterate over the list
-        for line in lines:
-
-            # replace mask in train dataset with SAM segmented semantics
-            line_old = line.strip()
-            line_new = line_old.replace(".png", "_new.png" )
-#             print(line_old)
-#             print(line_new)
-            f.write(line_new + '\n')
-
-            # Print each line
-    #        print(line.strip())
+    for idx, name in enumerate(img_list):
+        if idx in choice_id:
+           name_new = name.replace("_*.png", "_new.png")
+           name_new = re.sub(pattern, replacement, name, flags=re.IGNORECASE)
+           f.write("/JPEGImages/" + name + " /SegmentationClassAug/" + name + '\n')
+        

@@ -98,7 +98,7 @@ def transfer_pascal2ade(color_seg):
 img_list = "/mnt/nas/jiaojiao/2024/wsss_sam/metadata/pascal/train_aug(id).txt"
 img_path = "/mnt/nas/jiaojiao/2024/gen_ss/output/pascal_train_seg_0521"
 # output_path = "./output/pascal_train_0719_class/"
-output_path = "./output/pascal/" + args.output_dir + "_" + str(args.syn_size)
+output_path = "./output/pascal/" + args.output_dir # + "_" + str(args.syn_size)
 adeseg_path = "./output/pascal_adeseg_0718/"
 img_gt_path = "/mnt/nas/jiaojiao/data/VOCdevkit/VOC2012/JPEGImages"
 cnt = 0
@@ -121,7 +121,10 @@ with open(img_list) as f:
 def get_inputs(batch_size=1, image=Image.fromarray(np.zeros((500, 375))), prompt= "An image"):                                   
     
     generator = [torch.Generator("cuda").manual_seed(i) for i in range(batch_size)]                                                                                                                                                             
-    prompts = batch_size * [prompt]                                                                                                                                                                                                             
+    prompts = batch_size * [prompt]                                                                                            
+    
+    # predifined prompt list
+    prompts = prompt
     num_inference_steps = 50                                                                                                                                                                                                                    
     return {"prompt": prompts, "image": image, "generator": generator, "num_inference_steps": num_inference_steps} 
 
@@ -138,7 +141,7 @@ for index, name in tqdm(
     
     if os.path.exists(image_path):
         # Test if file already exist:
-        if '{}.png'.format(name) in os.listdir(output_path):
+        if '{}_0.png'.format(name) in os.listdir(output_path):
             continue
 
         # Use BLIP to caption image
@@ -177,10 +180,22 @@ for index, name in tqdm(
         # Prompt: an image of object classes
 #         prompt = "A real image of " + label # caption
         # Use image caption to generate prompt
-        prompt = caption + label
+        prompt = caption + ", " + label
         print("prompt: ", prompt, seg.size, image.size)
-                                                                                                                         
-        images = pipe(**get_inputs(batch_size=args.syn_size, image=seg, prompt=prompt)).images  
+        
+        # Load pre-defined prompt for generation, GPT-enhanced prompt
+        import json
+
+        # Specify the path to JSON file
+        file_path = "./output/prompt/expanded_caption_name.json"
+
+        # Open and load the JSON file
+        with open(file_path, "r") as json_file:
+            data = json.load(json_file)
+        prompt_GPT = data[name]
+        print("prompt GPT: ", prompt_GPT[:args.syn_size])
+        
+        images = pipe(**get_inputs(batch_size=args.syn_size, image=seg, prompt=prompt_GPT[:args.syn_size])).images  
         
         for i, image in enumerate(images):
             image = image.resize(seg.size)
@@ -188,11 +203,12 @@ for index, name in tqdm(
             image.save(os.path.join(output_path, '{}_{}.png'.format(name, i)))
         
         cnt += 1
-        caption_list[name] = prompt + '\n'
+#         caption_list[name] = prompt + '\n'
+        caption_list[name] = prompt_GPT[:args.syn_size]
     else:
         print('Semantic file not exist') # Semantic file not exist, or not segmented by SAM
         pass
 
 # Serialize data into file:
 
-json.dump( caption_list, open( output_path+"label_name.json", 'w' ) )
+json.dump( caption_list, open(os.path.join(output_path, "prompt_list.json"), 'w' ) )
